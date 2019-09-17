@@ -1,0 +1,128 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>measureUntil</title>
+</head>
+
+<style>
+#advance {
+    width:100px;
+    height:100px;
+    background-color:green;
+}
+
+#break {
+    width:100px;
+    height:100px;
+    background-color:red;
+}
+
+</style>
+
+<script>
+(() => {
+    // const measure = performance.measure
+    const measure = function(a, b, c){
+        console.log(a);
+        console.log(b);
+        // console.log(c);
+    }
+
+    const softNavigations = [];
+
+    window.getSoftNavigations = function(){
+        return softNavigations;
+    }
+
+    window.getSoftNavigationOrigin = function() {
+        if (softNavigations.length === 0)
+            return 0;
+        return softNavigations[softNavigations.length - 1][1];
+    }
+
+    performance.measure = function(measureName, startOrMeasureOptions, endMark) {
+        const event = startOrMeasureOptions['event'];
+        // TODO - throw if this event is stale - e.g., we've already produced a frame.
+        if (event) {
+            if (event.timeStamp > startOrMeasureOptions['startTime']) {
+                throw "performance.measure() called with event timestamp greater than start time.";
+            }
+            startOrMeasureOptions['startTime'] = event.timeStamp;
+            // This should trigger surfacing this duration in eventTiming.
+        }
+
+        // TODO - why are we getting negative numbers here?
+        if(startOrMeasureOptions['softNavigation']) {
+            softNavigations.push([measureName, startOrMeasureOptions['startTime']]);
+            window.dispatchEvent(new Event('softNavigation'));
+        }
+
+        const until = startOrMeasureOptions['until'];
+        if (until) {
+            until.then(() => {
+                startOrMeasureOptions['endTime'] = performance.now();
+                measure.call(performance, measureName, startOrMeasureOptions, endMark)
+            })
+            return;
+        }
+        measure.call(performance, measureName, startOrMeasureOptions, endMark);
+    }
+})();
+
+window.addEventListener('softNavigation', () => {
+    console.log("soft navigation")
+})
+
+const po = new PerformanceObserver((entries) => {
+    for (let entry of entries.getEntries()) {
+        console.log("Marked at time " + (entry.startTime - window.getSoftNavigationOrigin()));
+        console.log("Raw time is " + entry.startTime);
+        console.log("Time origin is " + performance.timeOrigin)
+    }
+})
+
+po.observe({entryTypes:['mark', 'measure']})
+
+function waitPromise() {
+    return new Promise(function(resolve, reject) {
+        window.setTimeout(resolve, 1000);
+    });
+}
+
+performance.measure("foo", {
+    until:waitPromise(),
+    softNavigation: true,
+    startTime:performance.now(),
+    endTime:performance.now()
+})
+
+console.log(getSoftNavigations())
+console.log(getSoftNavigationOrigin());
+
+document.addEventListener('click', (e) => {
+    performance.mark('clicky');
+    console.log("TIMESTAMP IS")
+    console.log(e.timeStamp)
+});
+
+window.addEventListener('DOMContentLoaded', ()=> {
+    document.getElementById('advance').addEventListener('click', (e) => {
+        performance.measure('click', {event:e, until:waitPromise(), softNavigation: true});
+    });
+
+
+    document.getElementById('break').addEventListener('click', (e) => {
+        performance.measure('click', {event:e, until:waitPromise(), startTime: e.timeStamp - 50});
+    });
+});
+
+</script>
+
+<body>
+    <div id='advance'>Transition</div>
+    <div id='break'>Break</div>
+</body>
+</html>
