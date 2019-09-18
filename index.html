@@ -22,58 +22,9 @@
 
 </style>
 
+<script src="utl4.js"></script>
+
 <script>
-(() => {
-    // const measure = performance.measure
-    const measure = function(a, b, c){
-        console.log(a);
-        console.log(b);
-        // console.log(c);
-    }
-
-    const softNavigations = [];
-
-    window.getSoftNavigations = function(){
-        return softNavigations;
-    }
-
-    window.getSoftNavigationOrigin = function() {
-        if (softNavigations.length === 0)
-            return 0;
-        return softNavigations[softNavigations.length - 1][1];
-    }
-
-    performance.measure = function(measureName, startOrMeasureOptions, endMark) {
-        const event = startOrMeasureOptions['event'];
-
-        if (event && event.timeStamp && startOrMeasureOptions['startTime']) {
-            throw "performance.measure() called with both event timestamp and start time.";
-        }
-
-        // TODO - throw if this event is stale - e.g., we've already produced a frame.
-        if (event) {
-            startOrMeasureOptions['startTime'] = event.timeStamp;
-            // This should trigger surfacing this duration in eventTiming.
-        }
-
-        // TODO - why are we getting negative numbers here?
-        if(startOrMeasureOptions['softNavigation']) {
-            softNavigations.push([measureName, startOrMeasureOptions['startTime']]);
-            window.dispatchEvent(new Event('softNavigation'));
-        }
-
-        const until = startOrMeasureOptions['until'];
-        if (until) {
-            until.then(() => {
-                startOrMeasureOptions['endTime'] = performance.now();
-                measure.call(performance, measureName, startOrMeasureOptions, endMark)
-            })
-            return;
-        }
-        measure.call(performance, measureName, startOrMeasureOptions, endMark);
-    }
-})();
-
 window.addEventListener('softNavigation', () => {
     console.log("soft navigation")
 })
@@ -81,8 +32,6 @@ window.addEventListener('softNavigation', () => {
 const po = new PerformanceObserver((entries) => {
     for (let entry of entries.getEntries()) {
         console.log("Marked at time " + (entry.startTime - window.getSoftNavigationOrigin()));
-        console.log("Raw time is " + entry.startTime);
-        console.log("Time origin is " + performance.timeOrigin)
     }
 })
 
@@ -101,13 +50,9 @@ performance.measure("foo", {
     endTime:performance.now()
 })
 
-console.log(getSoftNavigations())
-console.log(getSoftNavigationOrigin());
-
 document.addEventListener('click', (e) => {
     performance.mark('clicky');
-    console.log("TIMESTAMP IS")
-    console.log(e.timeStamp)
+    console.log(getSoftNavigations())
 });
 
 window.addEventListener('DOMContentLoaded', ()=> {
