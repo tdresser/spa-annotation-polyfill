@@ -45,11 +45,13 @@
 
     performance.measure = function(measureName, startOrMeasureOptions, endMark) {
         const event = startOrMeasureOptions['event'];
+
+        if (event && event.timeStamp && startOrMeasureOptions['startTime']) {
+            throw "performance.measure() called with both event timestamp and start time.";
+        }
+
         // TODO - throw if this event is stale - e.g., we've already produced a frame.
         if (event) {
-            if (event.timeStamp > startOrMeasureOptions['startTime']) {
-                throw "performance.measure() called with event timestamp greater than start time.";
-            }
             startOrMeasureOptions['startTime'] = event.timeStamp;
             // This should trigger surfacing this duration in eventTiming.
         }
